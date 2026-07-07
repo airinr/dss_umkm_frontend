@@ -1,5 +1,9 @@
 <script setup>
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { auth } from '../stores/auth.js'
+
+const router = useRouter()
 
 const role = ref('pusat')
 const email = ref('')
@@ -16,7 +20,13 @@ function validate() {
 
 function handleLogin() {
   if (!validate()) return
-  console.log('Login:', { role: role.value, email: email.value, password: password.value })
+
+  const success = auth.login(email.value, password.value, role.value)
+  if (success) {
+    router.push('/admin/dashboard')
+  } else {
+    errors.value.form = auth.errors.form
+  }
 }
 </script>
 
@@ -72,6 +82,10 @@ function handleLogin() {
         </div>
 
         <form @submit.prevent="handleLogin" class="space-y-6">
+          <div v-if="errors.form" class="bg-danger/10 border border-danger/30 rounded-xl px-4 py-3 text-sm text-danger">
+            {{ errors.form }}
+          </div>
+
           <div>
             <label class="block text-sm font-medium text-text mb-2">Login sebagai</label>
             <div class="grid grid-cols-2 gap-3">
