@@ -49,9 +49,9 @@ const totalFormItems = computed(() => {
   return items.value.reduce((sum, item) => sum + (Number(item.qty) || 0) * (Number(item.harga) || 0), 0)
 })
 
-const promoHariIni = computed(() => {
-  if (!promo.value?.rekomendasi_promo) return []
-  return promo.value.rekomendasi_promo.filter((p) => p.tanggal === today)
+const promoAktif = computed(() => {
+  if (!promo.value?.data) return []
+  return promo.value.data.filter((p) => p.is_active)
 })
 
 const prediksiHariIni = computed(() => {
@@ -341,15 +341,24 @@ async function handleSubmit() {
         <h3 class="text-lg font-heading font-semibold text-text mb-4 flex items-center gap-2">
           <span class="bg-primary/10 text-primary text-xs font-semibold px-2 py-0.5 rounded-full">Promo Hari Ini</span>
         </h3>
-        <div v-if="!promoHariIni.length" class="text-center py-8 text-sm text-text-muted">Tidak ada promo hari ini</div>
+        <div v-if="!promoAktif.length" class="text-center py-8 text-sm text-text-muted">Tidak ada promo hari ini</div>
         <div v-else class="space-y-3">
-          <div v-for="(item, i) in promoHariIni" :key="i" class="flex items-start gap-3 pb-3 border-b border-border/30 last:border-0">
+          <div v-for="(item, i) in promoAktif" :key="item.id || i" class="flex items-start gap-3 pb-3 border-b border-border/30 last:border-0">
             <svg class="w-4 h-4 mt-0.5 shrink-0 text-secondary-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <div>
-              <p class="text-sm font-medium text-text">{{ item.menu }}</p>
-              <p class="text-xs text-text-muted">{{ item.alasan }}</p>
+              <p class="text-sm font-medium text-text">{{ item.menu_nama }}</p>
+              <div class="flex items-center gap-2 mt-1">
+                <span v-if="item.kuadran" :class="['text-xs font-semibold px-2 py-0.5 rounded-full',
+                  item.kuadran === 'Star' ? 'bg-yellow-100 text-yellow-700' :
+                  item.kuadran === 'Plowhorse' ? 'bg-blue-100 text-blue-700' :
+                  item.kuadran === 'Puzzle' ? 'bg-purple-100 text-purple-700' :
+                  'bg-red-100 text-red-700'
+                ]">{{ item.kuadran }}</span>
+                <span class="line-through text-xs text-text-muted">{{ formatRupiah(item.harga_normal) }}</span>
+                <span class="text-xs font-bold text-primary">{{ formatRupiah(item.harga_promo) }} <span class="text-danger font-semibold">({{ item.diskon }})</span></span>
+              </div>
             </div>
           </div>
         </div>

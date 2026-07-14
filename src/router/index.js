@@ -25,6 +25,7 @@ const routes = [
           { path: 'dashboard', name: 'PusatDashboard', component: () => import('../views/pusat/DashboardView.vue') },
           { path: 'branch/:id', name: 'PusatBranchDetail', component: () => import('../views/pusat/BranchDetailView.vue') },
           { path: 'cabang', name: 'PusatBranchManagement', component: () => import('../views/pusat/BranchManagementView.vue') },
+          { path: 'menu', name: 'PusatMenuManagement', component: () => import('../views/pusat/MenuManagementView.vue') },
         ],
       },
       {

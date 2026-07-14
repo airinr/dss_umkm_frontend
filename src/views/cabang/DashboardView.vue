@@ -40,6 +40,16 @@ function formatRupiah(num) {
   return 'Rp ' + (num || 0).toLocaleString('id-ID')
 }
 
+const promoItems = computed(() => {
+  if (!promo.value) return []
+  return promo.value.data || promo.value.rekomendasi_promo || []
+})
+
+const promoPeriode = computed(() => {
+  if (!promo.value) return null
+  return promo.value.data?.[0]?.periode_minggu || promo.value.periode_minggu || null
+})
+
 const prediksiByDate = computed(() => {
   if (!prediksi.value?.prediksi) return []
   const groups = {}
@@ -166,7 +176,7 @@ onMounted(fetchData)
             :class="['px-5 py-2 rounded-xl text-sm font-medium transition-all duration-200', tab === 'prediksi' ? 'bg-primary text-white shadow-md' : 'bg-cream/50 text-text-muted hover:text-text']"
           >Prediksi</button>
           <button
-            v-if="promo"
+            v-if="promoItems.length"
             @click="tab = 'promo'"
             :class="['px-5 py-2 rounded-xl text-sm font-medium transition-all duration-200', tab === 'promo' ? 'bg-primary text-white shadow-md' : 'bg-cream/50 text-text-muted hover:text-text']"
           >Rekomendasi Promo</button>
@@ -228,19 +238,23 @@ onMounted(fetchData)
           </div>
         </template>
 
-        <template v-if="tab === 'promo' && promo">
+        <template v-if="tab === 'promo' && promoItems.length">
+          <p v-if="promoPeriode" class="text-sm text-text-muted mb-4">Periode: {{ formatDate(promoPeriode) }}</p>
           <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            <div v-for="(item, i) in promo.rekomendasi_promo" :key="i" class="bg-gradient-to-br from-primary/5 to-secondary/5 rounded-xl border border-border p-5">
-              <div class="flex items-center justify-between mb-3">
-                <span class="bg-primary/10 text-primary text-xs font-semibold px-3 py-1 rounded-full">{{ item.hari }}</span>
-                <span class="text-xs text-text-muted">{{ formatDate(item.tanggal) }}</span>
+            <div v-for="(item, i) in promoItems" :key="item.id || i" class="bg-gradient-to-br from-primary/5 to-secondary/5 rounded-xl border border-border p-5">
+              <p class="font-heading font-semibold text-text text-lg mb-2">{{ item.menu_nama || item.menu }}</p>
+              <div class="flex items-center gap-2 mb-2">
+                <span v-if="item.kuadran" :class="['text-xs font-semibold px-2 py-0.5 rounded-full',
+                  item.kuadran === 'Star' ? 'bg-yellow-100 text-yellow-700' :
+                  item.kuadran === 'Plowhorse' ? 'bg-blue-100 text-blue-700' :
+                  item.kuadran === 'Puzzle' ? 'bg-purple-100 text-purple-700' :
+                  'bg-red-100 text-red-700'
+                ]">{{ item.kuadran }}</span>
+                <span class="bg-danger/10 text-danger text-xs font-semibold px-2 py-0.5 rounded-full">{{ item.diskon }}</span>
               </div>
-              <p class="font-heading font-semibold text-text text-lg mb-1">{{ item.menu }}</p>
-              <div class="flex items-start gap-2 text-sm text-text-muted">
-                <svg class="w-4 h-4 mt-0.5 shrink-0 text-secondary-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>{{ item.alasan }}</span>
+              <div class="flex items-center gap-2 text-sm mb-2">
+                <span class="line-through text-text-muted">{{ formatRupiah(item.harga_normal) }}</span>
+                <span class="font-bold text-primary">{{ formatRupiah(item.harga_promo) }}</span>
               </div>
             </div>
           </div>

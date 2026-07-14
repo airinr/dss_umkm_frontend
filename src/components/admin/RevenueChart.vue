@@ -8,27 +8,29 @@ const props = defineProps({
 
 const emit = defineEmits(["update:modelValue"]);
 
+const sortedData = computed(() =>
+  [...props.data].sort((a, b) => b.nilai - a.nilai)
+)
+
 const maxPendapatan = computed(() =>
-  Math.max(...props.data.map((d) => d.nilai), 1),
+  Math.max(...sortedData.value.map((d) => d.nilai), 1),
 );
 const minPendapatan = computed(() =>
-  Math.min(...props.data.map((d) => d.nilai)),
+  Math.min(...sortedData.value.map((d) => d.nilai)),
 );
 
 const totalPendapatan = computed(() =>
-  props.data.reduce((s, d) => s + d.nilai, 0),
+  sortedData.value.reduce((s, d) => s + d.nilai, 0),
 );
 const rataPendapatan = computed(() =>
-  Math.round(totalPendapatan.value / props.data.length),
+  Math.round(totalPendapatan.value / sortedData.value.length),
 );
-const tertinggi = computed(() =>
-  props.data.find((d) => d.nilai === maxPendapatan.value),
-);
+const tertinggi = computed(() => sortedData.value[0] || null);
 const terendah = computed(() =>
-  props.data.find((d) => d.nilai === minPendapatan.value),
+  sortedData.value[sortedData.value.length - 1] || null,
 );
 const bawahRata = computed(() =>
-  props.data.filter((d) => d.nilai < rataPendapatan.value),
+  sortedData.value.filter((d) => d.nilai < rataPendapatan.value),
 );
 
 function getBarClass(nilai) {
@@ -133,7 +135,7 @@ const periodeLabel = computed(() => {
     </div>
     <div class="space-y-4">
       <div
-        v-for="item in data"
+        v-for="item in sortedData"
         :key="item.nama"
         class="flex items-center gap-4"
       >

@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getSemuaCabang, getPrediksi, getPromo, getTransaksi } from '../../services/dashboard.js'
+import { getSemuaCabang, getPrediksi, getPromo, getEngineering, getTransaksi } from '../../services/dashboard.js'
 import * as XLSX from 'xlsx'
 import SalesChart from '../../components/admin/SalesChart.vue'
 
@@ -10,6 +10,7 @@ const router = useRouter()
 const branch = ref(null)
 const prediksi = ref(null)
 const promo = ref(null)
+const engineering = ref(null)
 const transaksi = ref([])
 const dssError = ref('')
 const loading = ref(true)
@@ -46,6 +47,16 @@ const prediksiByDate = computed(() => {
     groups[item.tanggal].push(item)
   })
   return Object.entries(groups).map(([tanggal, items]) => ({ tanggal, items }))
+})
+
+const promoItems = computed(() => {
+  if (!promo.value) return []
+  return promo.value.data || promo.value.rekomendasi_promo || []
+})
+
+const promoPeriode = computed(() => {
+  if (!promo.value) return null
+  return promo.value.data?.[0]?.periode_minggu || promo.value.periode_minggu || null
 })
 
 const filteredTransaksi = computed(() => {
@@ -106,6 +117,11 @@ onMounted(async () => {
         promo.value = pr
       } catch (e) {
         dssError.value = e.message
+      }
+      try {
+        engineering.value = await getEngineering(route.params.id)
+      } catch (e) {
+        // engineering optional
       }
     }
   } catch (e) {
@@ -174,7 +190,7 @@ onMounted(async () => {
             :class="['px-5 py-2 rounded-xl text-sm font-medium transition-all duration-200', tab === 'prediksi' ? 'bg-primary text-white shadow-md' : 'bg-cream/50 text-text-muted hover:text-text']"
           >Prediksi Penjualan</button>
           <button
-            v-if="promo"
+            v-if="promoItems.length"
             @click="tab = 'promo'"
             :class="['px-5 py-2 rounded-xl text-sm font-medium transition-all duration-200', tab === 'promo' ? 'bg-primary text-white shadow-md' : 'bg-cream/50 text-text-muted hover:text-text']"
           >Rekomendasi Promo</button>
@@ -182,6 +198,11 @@ onMounted(async () => {
             @click="tab = 'transaksi'; if (!transaksi.length) fetchTransaksi()"
             :class="['px-5 py-2 rounded-xl text-sm font-medium transition-all duration-200', tab === 'transaksi' ? 'bg-primary text-white shadow-md' : 'bg-cream/50 text-text-muted hover:text-text']"
           >Riwayat Transaksi</button>
+          <button
+            v-if="engineering"
+            @click="tab = 'engineering'"
+            :class="['px-5 py-2 rounded-xl text-sm font-medium transition-all duration-200', tab === 'engineering' ? 'bg-primary text-white shadow-md' : 'bg-cream/50 text-text-muted hover:text-text']"
+          >Menu Mix Analysis</button>
         </div>
 
         <div v-if="tab === 'penjualan' || tab === 'transaksi'" class="flex flex-wrap items-center gap-4 mb-6">
@@ -200,7 +221,7 @@ onMounted(async () => {
               <button
                 @click="exportExcel"
                 :disabled="!filteredTransaksi.length"
-                class="flex items-center gap-2 px-4 py-2 bg-success/10 text-success font-medium rounded-xl border border-success/30 hover:bg-success/20 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                class="flex items-center gap-2 px-4 py-2 bg-success-dark text-white font-medium rounded-xl hover:bg-green-800 transition-all text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -236,19 +257,23 @@ onMounted(async () => {
           </div>
         </template>
 
-        <template v-if="tab === 'promo' && promo">
+        <template v-if="tab === 'promo' && promoItems.length">
+          <p v-if="promoPeriode" class="text-sm text-text-muted mb-4">Periode: {{ formatDate(promoPeriode) }}</p>
           <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            <div v-for="(item, i) in promo.rekomendasi_promo" :key="i" class="bg-gradient-to-br from-primary/5 to-secondary/5 rounded-xl border border-border p-5">
-              <div class="flex items-center justify-between mb-3">
-                <span class="bg-primary/10 text-primary text-xs font-semibold px-3 py-1 rounded-full">{{ item.hari }}</span>
-                <span class="text-xs text-text-muted">{{ formatDate(item.tanggal) }}</span>
+            <div v-for="(item, i) in promoItems" :key="item.id || i" class="bg-gradient-to-br from-primary/5 to-secondary/5 rounded-xl border border-border p-5">
+              <p class="font-heading font-semibold text-text text-lg mb-2">{{ item.menu_nama || item.menu }}</p>
+              <div class="flex items-center gap-2 mb-2">
+                <span v-if="item.kuadran" :class="['text-xs font-semibold px-2 py-0.5 rounded-full',
+                  item.kuadran === 'Star' ? 'bg-yellow-100 text-yellow-700' :
+                  item.kuadran === 'Plowhorse' ? 'bg-blue-100 text-blue-700' :
+                  item.kuadran === 'Puzzle' ? 'bg-purple-100 text-purple-700' :
+                  'bg-red-100 text-red-700'
+                ]">{{ item.kuadran }}</span>
+                <span class="bg-danger/10 text-danger text-xs font-semibold px-2 py-0.5 rounded-full">{{ item.diskon }}</span>
               </div>
-              <p class="font-heading font-semibold text-text text-lg mb-1">{{ item.menu }}</p>
-              <div class="flex items-start gap-2 text-sm text-text-muted">
-                <svg class="w-4 h-4 mt-0.5 shrink-0 text-secondary-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>{{ item.alasan }}</span>
+              <div class="flex items-center gap-2 text-sm mb-2">
+                <span class="line-through text-text-muted">{{ formatRupiah(item.harga_normal) }}</span>
+                <span class="font-bold text-primary">{{ formatRupiah(item.harga_promo) }}</span>
               </div>
             </div>
           </div>
@@ -280,6 +305,67 @@ onMounted(async () => {
                 </tr>
               </tbody>
             </table>
+          </div>
+        </template>
+
+        <template v-if="tab === 'engineering' && engineering">
+          <p class="text-sm text-text-muted mb-4">Periode: {{ formatDate(engineering.periode_minggu) }}</p>
+          <div class="bg-primary/5 rounded-xl border border-primary/20 p-5 mb-6">
+            <h4 class="font-heading font-semibold text-text mb-2">Apa itu Menu Mix Analysis?</h4>
+            <p class="text-sm text-text-muted leading-relaxed">
+              Menu Mix Analysis adalah metode analisis yang mengkategorikan menu berdasarkan dua dimensi:
+              <strong class="text-text">popularitas penjualan</strong> dan <strong class="text-text">profitabilitas</strong>.
+              Hasilnya dikelompokkan ke dalam 4 kuadran:
+            </p>
+            <ul class="mt-3 space-y-1.5 text-sm text-text-muted">
+              <li class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-yellow-400 shrink-0"></span>
+                <strong class="text-text">Star</strong> &mdash; Popularitas tinggi, profit tinggi
+              </li>
+              <li class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-blue-400 shrink-0"></span>
+                <strong class="text-text">Plowhorse</strong> &mdash; Popularitas tinggi, profit rendah
+              </li>
+              <li class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-purple-400 shrink-0"></span>
+                <strong class="text-text">Puzzle</strong> &mdash; Popularitas rendah, profit tinggi
+              </li>
+              <li class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-red-400 shrink-0"></span>
+                <strong class="text-text">Dog</strong> &mdash; Popularitas rendah, profit rendah
+              </li>
+            </ul>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div v-for="q in [
+              { key: 'star', label: 'Star', icon: 'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z', color: 'bg-yellow-50 border-yellow-200', iconColor: 'text-yellow-500', badge: 'bg-yellow-100 text-yellow-700' },
+              { key: 'plowhorse', label: 'Plowhorse', icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253', color: 'bg-blue-50 border-blue-200', iconColor: 'text-blue-500', badge: 'bg-blue-100 text-blue-700' },
+              { key: 'puzzle', label: 'Puzzle', icon: 'M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z', color: 'bg-purple-50 border-purple-200', iconColor: 'text-purple-500', badge: 'bg-purple-100 text-purple-700' },
+              { key: 'dog', label: 'Dog', icon: 'M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', color: 'bg-red-50 border-red-200', iconColor: 'text-red-500', badge: 'bg-red-100 text-red-700' },
+            ]" :key="q.key">
+              <div :class="['rounded-xl border p-5', q.color]">
+                <div class="flex items-center gap-3 mb-4">
+                  <div :class="['w-10 h-10 rounded-lg bg-white/80 flex items-center justify-center', q.iconColor]">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" :d="q.icon" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 class="font-heading font-bold text-text text-lg">{{ q.label }}</h3>
+                    <span :class="['text-xs font-semibold px-2 py-0.5 rounded-full', q.badge]">{{ (engineering.menu_engineering?.[q.key] || []).length }} menu</span>
+                  </div>
+                </div>
+                <div v-if="(engineering.menu_engineering?.[q.key] || []).length" class="flex flex-wrap gap-2">
+                  <span v-for="(item, idx) in engineering.menu_engineering[q.key]" :key="idx" class="inline-flex items-center gap-1.5 bg-white/80 text-text px-3 py-1.5 rounded-lg text-sm font-medium shadow-sm border border-border/50">
+                    <svg class="w-3.5 h-3.5 shrink-0 text-secondary-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18c1.746 0 3.332-.477 4.5-1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332-.477-4.5-1.253" />
+                    </svg>
+                    {{ item }}
+                  </span>
+                </div>
+                <p v-else class="text-sm text-text-muted italic">Tidak ada menu</p>
+              </div>
+            </div>
           </div>
         </template>
       </div>
