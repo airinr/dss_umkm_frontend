@@ -84,23 +84,23 @@ function navigate(path) {
         Keluar
       </button>
     </div>
+  </aside>
 
-    <div v-if="showLogoutModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4" @click="showLogoutModal = false">
-      <div class="bg-surface rounded-2xl p-8 max-w-sm w-full shadow-xl" @click.stop>
-        <div class="text-center">
-          <div class="w-14 h-14 bg-danger/10 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg class="w-7 h-7 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
-          </div>
-          <h3 class="text-lg font-heading font-semibold text-text mb-2">Yakin ingin keluar?</h3>
-          <p class="text-sm text-text-muted mb-6">Anda akan kembali ke halaman login</p>
-          <div class="flex gap-3">
-            <button @click="showLogoutModal = false" class="flex-1 py-2.5 px-4 bg-cream/50 text-text font-medium rounded-xl hover:bg-cream transition-all">Batal</button>
-            <button @click="handleLogout" class="flex-1 py-2.5 px-4 bg-danger text-white font-medium rounded-xl hover:bg-red-700 transition-all">Keluar</button>
-          </div>
+  <div v-if="showLogoutModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4" @click="showLogoutModal = false">
+    <div class="bg-surface rounded-2xl p-8 max-w-sm w-full shadow-xl" @click.stop>
+      <div class="text-center">
+        <div class="w-14 h-14 bg-danger/10 rounded-full flex items-center justify-center mx-auto mb-4">
+          <svg class="w-7 h-7 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          </svg>
+        </div>
+        <h3 class="text-lg font-heading font-semibold text-text mb-2">Yakin ingin keluar?</h3>
+        <p class="text-sm text-text-muted mb-6">Anda akan kembali ke halaman login</p>
+        <div class="flex gap-3">
+          <button @click="showLogoutModal = false" class="flex-1 py-2.5 px-4 bg-cream/50 text-text font-medium rounded-xl hover:bg-cream transition-all">Batal</button>
+          <button @click="handleLogout" class="flex-1 py-2.5 px-4 bg-danger text-white font-semibold rounded-xl hover:bg-red-700 transition-all">Keluar</button>
         </div>
       </div>
     </div>
-  </aside>
+  </div>
 </template>

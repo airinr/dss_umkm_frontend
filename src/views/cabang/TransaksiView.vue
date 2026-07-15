@@ -5,7 +5,7 @@ import { getTransaksi, createTransaksi, getPromo, getPrediksi, getMenu } from '.
 import { auth } from '../../stores/auth.js'
 
 const daftarMenu = ref([])
-const items = ref([{ menu: '', menuSearch: '', qty: 1, harga: '' }])
+const items = ref([{ menu: '', menuSearch: '', qty: 1, harga: '', isPromo: false, promoInfo: null }])
 const openDropdown = ref(null)
 const transaksiList = ref([])
 const transaksiLoading = ref(false)
@@ -49,9 +49,25 @@ const totalFormItems = computed(() => {
   return items.value.reduce((sum, item) => sum + (Number(item.qty) || 0) * (Number(item.harga) || 0), 0)
 })
 
-const promoAktif = computed(() => {
-  if (!promo.value?.data) return []
-  return promo.value.data.filter((p) => p.is_active)
+const promoMap = computed(() => {
+  const map = {}
+  if (!promo.value) return map
+  const merged = []
+  if (Array.isArray(promo.value.rekomendasi_promo)) merged.push(...promo.value.rekomendasi_promo)
+  if (Array.isArray(promo.value.data)) merged.push(...promo.value.data)
+  merged.forEach((p) => {
+    const name = p.menu || p.menu_nama
+    if (name) map[name] = { harga_promo: p.harga_promo, harga_normal: p.harga_normal, diskon: p.diskon }
+  })
+  return map
+})
+
+const promoHariIni = computed(() => {
+  if (!promo.value) return []
+  const merged = []
+  if (Array.isArray(promo.value.rekomendasi_promo)) merged.push(...promo.value.rekomendasi_promo)
+  if (Array.isArray(promo.value.data)) merged.push(...promo.value.data)
+  return merged.filter((p) => (p.tanggal || today) === today)
 })
 
 const prediksiHariIni = computed(() => {
@@ -84,7 +100,7 @@ async function fetchData() {
 }
 
 function addItem() {
-  items.value.push({ menu: '', menuSearch: '', qty: 1, harga: '' })
+  items.value.push({ menu: '', menuSearch: '', qty: 1, harga: '', isPromo: false, promoInfo: null })
 }
 
 function filteredMenus(search) {
@@ -96,8 +112,22 @@ function filteredMenus(search) {
 function selectMenu(index, m) {
   items.value[index].menu = m.nama
   items.value[index].menuSearch = m.nama
-  items.value[index].harga = m.harga
+  const p = promoMap.value[m.nama]
+  console.log('promoMap keys:', Object.keys(promoMap.value), '- selected:', m.nama, '- found:', p)
+  if (p) {
+    items.value[index].harga = p.harga_promo
+    items.value[index].isPromo = true
+    items.value[index].promoInfo = p
+  } else {
+    items.value[index].harga = m.harga
+    items.value[index].isPromo = false
+    items.value[index].promoInfo = null
+  }
   openDropdown.value = null
+}
+
+function delayCloseDropdown(index) {
+  setTimeout(() => { openDropdown.value = null }, 200)
 }
 
 function toggleDropdown(index) {
@@ -181,6 +211,7 @@ function exportToExcel() {
     Menu: t.menu,
     Qty: t.qty,
     Harga: t.harga,
+    Promo: t.keterangan ? 'Ya' : 'Tidak',
     Total: t.qty * t.harga,
   }))
   const ws = XLSX.utils.json_to_sheet(data)
@@ -204,11 +235,10 @@ async function handleSubmit() {
     const payload = validItems.map((item) => ({
       menu: item.menu,
       qty: Number(item.qty),
-      harga: Number(item.harga),
     }))
     await createTransaksi(cabangId.value, payload, tanggal.value)
     success.value = `${payload.length} transaksi berhasil ditambahkan`
-    items.value = [{ menu: '', qty: 1, harga: '' }]
+    items.value = [{ menu: '', menuSearch: '', qty: 1, harga: '', isPromo: false, promoInfo: null }]
     await fetchData()
   } catch (e) {
     formError.value = e.message
@@ -261,7 +291,7 @@ async function handleSubmit() {
                   v-model="item.menuSearch"
                   @focus="openDropdown = index"
                   @input="openDropdown = index"
-                  @blur="setTimeout(() => openDropdown = null, 200)"
+                  @blur="delayCloseDropdown(index)"
                   type="text"
                   placeholder="Cari menu..."
                   class="w-full px-4 py-3 rounded-xl border-2 border-border bg-surface text-text placeholder-text-muted/50 outline-none focus:border-primary transition-all duration-200"
@@ -303,6 +333,11 @@ async function handleSubmit() {
                       disabled
                       class="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-border bg-gray-50 text-text-muted font-bold cursor-not-allowed outline-none transition-all duration-200"
                     />
+                    <span v-if="item.isPromo" class="absolute right-3 top-1/2 -translate-y-1/2 bg-success-dark text-white text-[10px] font-semibold px-1.5 py-0.5 rounded">Promo</span>
+                  </div>
+                  <div v-if="item.isPromo && item.promoInfo" class="flex items-center gap-1.5 mt-1.5">
+                    <span class="text-[11px] text-text-muted line-through">{{ formatRupiah(item.promoInfo.harga_normal) }}</span>
+                    <span class="text-[11px] text-success-dark font-semibold">{{ item.promoInfo.diskon }}</span>
                   </div>
                 </div>
               </div>
@@ -341,14 +376,14 @@ async function handleSubmit() {
         <h3 class="text-lg font-heading font-semibold text-text mb-4 flex items-center gap-2">
           <span class="bg-primary/10 text-primary text-xs font-semibold px-2 py-0.5 rounded-full">Promo Hari Ini</span>
         </h3>
-        <div v-if="!promoAktif.length" class="text-center py-8 text-sm text-text-muted">Tidak ada promo hari ini</div>
+        <div v-if="!promoHariIni.length" class="text-center py-8 text-sm text-text-muted">Tidak ada promo hari ini</div>
         <div v-else class="space-y-3">
-          <div v-for="(item, i) in promoAktif" :key="item.id || i" class="flex items-start gap-3 pb-3 border-b border-border/30 last:border-0">
+          <div v-for="(item, i) in promoHariIni" :key="item.id || i" class="flex items-start gap-3 pb-3 border-b border-border/30 last:border-0">
             <svg class="w-4 h-4 mt-0.5 shrink-0 text-secondary-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <div>
-              <p class="text-sm font-medium text-text">{{ item.menu_nama }}</p>
+              <p class="text-sm font-medium text-text">{{ item.menu_nama || item.menu }}</p>
               <div class="flex items-center gap-2 mt-1">
                 <span v-if="item.kuadran" :class="['text-xs font-semibold px-2 py-0.5 rounded-full',
                   item.kuadran === 'Star' ? 'bg-yellow-100 text-yellow-700' :
@@ -399,6 +434,7 @@ async function handleSubmit() {
                 <th class="text-left py-3 px-4 text-text-muted font-medium">Menu</th>
                 <th class="text-right py-3 px-4 text-text-muted font-medium">Qty</th>
                 <th class="text-right py-3 px-4 text-text-muted font-medium">Harga</th>
+                <th class="text-center py-3 px-4 text-text-muted font-medium">Promo</th>
                 <th class="text-right py-3 px-4 text-text-muted font-medium">Total</th>
               </tr>
             </thead>
@@ -410,6 +446,15 @@ async function handleSubmit() {
                 </td>
                 <td class="py-3 px-4 text-right text-text">{{ t.qty }}</td>
                 <td class="py-3 px-4 text-right text-text">{{ formatRupiah(t.harga) }}</td>
+                <td class="py-3 px-4 text-center">
+                  <span v-if="t.keterangan" class="inline-flex items-center gap-1 bg-success/10 text-success-dark text-xs font-semibold px-2 py-0.5 rounded-full">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Promo
+                  </span>
+                  <span v-else class="text-text-muted text-xs">&mdash;</span>
+                </td>
                 <td class="py-3 px-4 text-right font-semibold text-text">{{ formatRupiah(t.qty * t.harga) }}</td>
               </tr>
             </tbody>
